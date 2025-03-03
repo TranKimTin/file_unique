@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload & Quản lý File</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        button {
+            margin-right: 10px;
+        }
+        #message {
+            margin-top: 20px;
+            color: green;
+        }
+        .file-item {
+            margin: 5px 0;
+        }
+        .file-link {
+            text-decoration: none;
+            color: blue;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload File (chỉ hỗ trợ file .txt)</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="files" id="fileInput" multiple accept=".txt">
+        <br><br>
+        <button type="submit">Upload</button>
+    </form>
+
+    <button id="downloadBtn">Tải file đã xử lý (gộp & loại bỏ dòng trùng)</button>
+
+    <h3>Danh sách file đã upload:</h3>
+    <div id="fileList"></div>
+
+    <div id="message"></div>
+
+    <script>
+        // Hàm tải lại danh sách file đã upload
+        function loadFileList() {
+            fetch('/files')
+            .then(response => response.json())
+            .then(data => {
+                const fileListDiv = document.getElementById('fileList');
+                fileListDiv.innerHTML = '';
+                if (data.files.length === 0) {
+                    fileListDiv.textContent = 'Chưa có file nào được upload.';
+                } else {
+                    data.files.forEach(file => {
+                        const div = document.createElement('div');
+                        div.className = 'file-item';
+                        
+                        // Tạo link tải file
+                        const link = document.createElement('a');
+                        link.href = `/file/${encodeURIComponent(file)}`;
+                        link.textContent = file;
+                        link.className = 'file-link';
+                        link.download = file; // giúp trình duyệt tự động tải file
+                        
+                        // Nút xóa file
+                        const delBtn = document.createElement('button');
+                        delBtn.textContent = 'Xóa';
+                        delBtn.onclick = () => deleteFile(file);
+                        
+                        div.appendChild(link);
+                        div.appendChild(document.createTextNode(' ')); // khoảng cách
+                        div.appendChild(delBtn);
+                        fileListDiv.appendChild(div);
+                    });
+                }
+            })
+            .catch(err => {
+                console.error('Lỗi khi tải danh sách file:', err);
+            });
+        }
+
+        // Xử lý upload file
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const input = document.getElementById('fileInput');
+            const formData = new FormData();
+            for (let file of input.files) {
+                formData.append('files', file);
+            }
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('message').textContent = data.message;
+                loadFileList();
+            })
+            .catch(err => {
+                document.getElementById('message').textContent = 'Lỗi khi upload file';
+            });
+        });
+
+        // Xử lý download file đã xử lý (gộp và loại bỏ dòng trùng)
+        document.getElementById('downloadBtn').addEventListener('click', function() {
+            window.location.href = '/download';
+        });
+
+        // Hàm xóa file theo tên
+        function deleteFile(filename) {
+            fetch('/delete/' + encodeURIComponent(filename), {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('message').textContent = data.message;
+                loadFileList();
+            })
+            .catch(err => {
+                document.getElementById('message').textContent = 'Lỗi khi xóa file';
+            });
+        }
+
+        // Tải danh sách file khi trang được load
+        window.onload = loadFileList;
+    </script>
+</body>
+</html>
