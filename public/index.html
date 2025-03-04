@@ -1,131 +1,188 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
-    <title>Upload & Quản lý File</title>
+    <title>Quản lý File Theo 2 Loại</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
+
         form {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
         }
-        button {
-            margin-right: 10px;
+
+        h3 {
+            margin-bottom: 5px;
         }
-        #message {
-            margin-top: 20px;
-            color: green;
-        }
+
         .file-item {
             margin: 5px 0;
         }
+
         .file-link {
             text-decoration: none;
             color: blue;
             cursor: pointer;
         }
+
+        button {
+            margin-right: 5px;
+        }
+
+        #message {
+            margin-top: 15px;
+            color: green;
+        }
     </style>
 </head>
+
 <body>
-    <h2>Upload File (chỉ hỗ trợ file .txt)</h2>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" name="files" id="fileInput" multiple accept=".txt">
+    <h2>Upload File cho 2 loại</h2>
+
+    <!-- Form upload cho Loại 1 -->
+    <form id="uploadFormCat1" enctype="multipart/form-data">
+        <h3>Loại 1</h3>
+        <input type="file" name="files" id="fileInputCat1" multiple accept=".txt">
         <br><br>
-        <button type="submit">Upload</button>
     </form>
 
-    <button id="downloadBtn">Tải file đã xử lý (gộp & loại bỏ dòng trùng)</button>
+    <!-- Danh sách file Loại 1 -->
+    <div>
+        <h4>Danh sách file Loại 1:</h4>
+        <div id="fileListCat1"></div>
+    </div>
 
-    <h3>Danh sách file đã upload:</h3>
-    <div id="fileList"></div>
+    <hr>
+
+    <!-- Form upload cho Loại 2 -->
+    <form id="uploadFormCat2" enctype="multipart/form-data">
+        <h3>Loại 2</h3>
+        <input type="file" name="files" id="fileInputCat2" multiple accept=".txt">
+        <br><br>
+    </form>
+
+    <!-- Danh sách file Loại 2 -->
+    <div>
+        <h4>Danh sách file Loại 2:</h4>
+        <div id="fileListCat2"></div>
+    </div>
+
+    <hr>
+
+    <!-- Nút lọc trùng -->
+    <button id="filterBtn">Lọc trùng (dòng có trong Loại 1 nhưng không có trong Loại 2)</button>
 
     <div id="message"></div>
 
     <script>
-        // Hàm tải lại danh sách file đã upload
-        function loadFileList() {
-            fetch('/files')
-            .then(response => response.json())
-            .then(data => {
-                const fileListDiv = document.getElementById('fileList');
-                fileListDiv.innerHTML = '';
-                if (data.files.length === 0) {
-                    fileListDiv.textContent = 'Chưa có file nào được upload.';
-                } else {
-                    data.files.forEach(file => {
-                        const div = document.createElement('div');
-                        div.className = 'file-item';
-                        
-                        // Tạo link tải file
-                        const link = document.createElement('a');
-                        link.href = `/file/${encodeURIComponent(file)}`;
-                        link.textContent = file;
-                        link.className = 'file-link';
-                        link.download = file; // giúp trình duyệt tự động tải file
-                        
-                        // Nút xóa file
-                        const delBtn = document.createElement('button');
-                        delBtn.textContent = 'Xóa';
-                        delBtn.onclick = () => deleteFile(file);
-                        
-                        div.appendChild(link);
-                        div.appendChild(document.createTextNode(' ')); // khoảng cách
-                        div.appendChild(delBtn);
-                        fileListDiv.appendChild(div);
-                    });
-                }
-            })
-            .catch(err => {
-                console.error('Lỗi khi tải danh sách file:', err);
-            });
-        }
-
-        // Xử lý upload file
-        document.getElementById('uploadForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const input = document.getElementById('fileInput');
+        // Hàm upload file tự động khi file được chọn
+        function autoUpload(category, inputElement) {
+            const files = inputElement.files;
+            if (files.length === 0) return;
             const formData = new FormData();
-            for (let file of input.files) {
+            for (let file of files) {
                 formData.append('files', file);
             }
-            fetch('/upload', {
+            fetch(`/upload/${category}`, {
                 method: 'POST',
                 body: formData
             })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('message').textContent = data.message;
-                loadFileList();
-            })
-            .catch(err => {
-                document.getElementById('message').textContent = 'Lỗi khi upload file';
-            });
-        });
-
-        // Xử lý download file đã xử lý (gộp và loại bỏ dòng trùng)
-        document.getElementById('downloadBtn').addEventListener('click', function() {
-            window.location.href = '/download';
-        });
-
-        // Hàm xóa file theo tên
-        function deleteFile(filename) {
-            fetch('/delete/' + encodeURIComponent(filename), {
-                method: 'DELETE'
-            })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('message').textContent = data.message;
-                loadFileList();
-            })
-            .catch(err => {
-                document.getElementById('message').textContent = 'Lỗi khi xóa file';
-            });
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('message').textContent = data.message;
+                    loadFileList(category);
+                })
+                .catch(err => {
+                    document.getElementById('message').textContent = `Lỗi khi upload file ${category}`;
+                });
         }
 
+        // Hàm tải danh sách file cho từng loại
+        function loadFileList(category) {
+            const url = `/files/${category}`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const fileListDiv = document.getElementById(category === 'category1' ? 'fileListCat1' : 'fileListCat2');
+                    fileListDiv.innerHTML = '';
+                    if (data.files.length === 0) {
+                        fileListDiv.textContent = 'Chưa có file nào.';
+                    } else {
+                        data.files.forEach(file => {
+                            const div = document.createElement('div');
+                            div.className = 'file-item';
+
+                            // Tạo link tải file
+                            const link = document.createElement('a');
+                            link.href = `/file/${category}/${encodeURIComponent(file)}`;
+                            link.textContent = file;
+                            link.className = 'file-link';
+                            link.download = file;
+
+                            // Nút xóa file
+                            const delBtn = document.createElement('button');
+                            delBtn.textContent = 'Xóa';
+                            delBtn.onclick = () => deleteFile(category, file);
+
+                            div.appendChild(link);
+                            div.appendChild(document.createTextNode(' '));
+                            div.appendChild(delBtn);
+                            fileListDiv.appendChild(div);
+                        });
+                    }
+                })
+                .catch(err => console.error('Lỗi khi tải danh sách file:', err));
+        }
+
+        // Hàm xóa file
+        function deleteFile(category, filename) {
+            fetch(`/delete/${category}/${encodeURIComponent(filename)}`, {
+                method: 'DELETE'
+            })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('message').textContent = data.message;
+                    loadFileList(category);
+                })
+                .catch(err => {
+                    document.getElementById('message').textContent = 'Lỗi khi xóa file';
+                });
+        }
+
+        // Xử lý lọc trùng: Khi nhấn nút, tải về file kết quả.
+        // Sau đó, reload lại trang.
+        document.getElementById('filterBtn').addEventListener('click', function () {
+            // Tạo iframe ẩn để tải file về
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = '/download/difference';
+            document.body.appendChild(iframe);
+
+            // Sau một khoảng thời gian, reload lại trang (để đảm bảo file Loại 1 đã được chuyển sang Loại 2)
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        });
+
+        // Gán sự kiện onchange cho input file để tự upload khi chọn file
+        document.getElementById('fileInputCat1').addEventListener('change', function () {
+            autoUpload('category1', this);
+        });
+        document.getElementById('fileInputCat2').addEventListener('change', function () {
+            autoUpload('category2', this);
+        });
+
         // Tải danh sách file khi trang được load
-        window.onload = loadFileList;
+        window.onload = function () {
+            loadFileList('category1');
+            loadFileList('category2');
+        }
     </script>
 </body>
+
 </html>
